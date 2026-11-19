@@ -189,15 +189,13 @@ def montar_relatorio(atuais, anteriores, por_hora, total_viral, erros):
 def enviar_email(usuario, senha, para, assunto, texto):
     msg = MIMEText(texto, "plain", "utf-8")
     msg["Subject"], msg["From"], msg["To"] = assunto, usuario, para
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=60) as s:
-            s.login(usuario, senha)
-            s.sendmail(usuario, [para], msg.as_string())
-    except smtplib.SMTPServerDisconnected:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=60) as s:
-            s.starttls(context=ssl.create_default_context())
-            s.login(usuario, senha)
-            s.sendmail(usuario, [para], msg.as_string())
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=60) as s:
+        s.ehlo()
+        # usa so AUTH PLAIN: o login() padrao tenta outro metodo depois de uma recusa,
+        # o Gmail derruba a conexao e o motivo real (ex.: senha errada) se perde
+        s.user, s.password = usuario, senha
+        s.auth("PLAIN", s.auth_plain)
+        s.sendmail(usuario, [para], msg.as_string())
 
 
 def enviar_whatsapp(telefone, apikey, texto):
