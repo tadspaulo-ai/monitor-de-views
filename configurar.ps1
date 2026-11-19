@@ -14,7 +14,7 @@ function Read-Segredo([string]$texto) {
 }
 function Set-Segredo([string]$nome, [string]$valor) {
   if ([string]::IsNullOrWhiteSpace($valor)) { Write-Host "  (pulado: $nome)" -ForegroundColor DarkGray; return }
-  $valor | & $gh secret set $nome --repo $Repo | Out-Null
+  & $gh secret set $nome --repo $Repo --body $valor | Out-Null
   Write-Host "  OK: $nome guardado no GitHub" -ForegroundColor Green
 }
 
@@ -33,8 +33,25 @@ if (-not $SoTikTok) {
   Write-Host '--- E-mail (Gmail) ---' -ForegroundColor Yellow
   Write-Host 'Use o endereco COMPLETO (ex.: nome@gmail.com) e a senha de app, NAO a senha normal do Gmail.'
   Write-Host 'Senha de app: myaccount.google.com/apppasswords (precisa da verificacao em 2 etapas ligada).'
-  Set-Segredo 'GMAIL_USER' (Read-Host 'Seu endereco do Gmail que vai ENVIAR os relatorios').Trim()
-  Set-Segredo 'GMAIL_APP_PASSWORD' ((Read-Segredo 'Cole a senha de app do Gmail (16 letras)') -replace '\s', '')
+  while ($true) {
+    $gu = (Read-Host 'Seu endereco do Gmail que vai ENVIAR os relatorios').Trim()
+    if (-not $gu) { break }
+    $gp = (Read-Segredo 'Cole a senha de app do Gmail (16 letras)') -replace '\s', ''
+    Write-Host '  Testando o login no Gmail (envia um e-mail de teste para voce)...'
+    try {
+      $smtp = New-Object Net.Mail.SmtpClient('smtp.gmail.com', 587)
+      $smtp.EnableSsl = $true
+      $smtp.Credentials = New-Object Net.NetworkCredential($gu, $gp)
+      $smtp.Send($gu, $gu, 'Monitor de Views - teste', 'Se voce recebeu isto, o Gmail do Monitor de Views esta configurado.')
+      Write-Host '  OK: o Gmail aceitou! Confira o e-mail de teste.' -ForegroundColor Green
+      Set-Segredo 'GMAIL_USER' $gu
+      Set-Segredo 'GMAIL_APP_PASSWORD' $gp
+      break
+    } catch {
+      Write-Host "  O Gmail RECUSOU: $($_.Exception.InnerException.Message) $($_.Exception.Message)" -ForegroundColor Red
+      Write-Host '  Use o endereco completo e uma SENHA DE APP (myaccount.google.com/apppasswords). Tente de novo ou Enter para pular.' -ForegroundColor Red
+    }
+  }
   Set-Segredo 'EMAIL_TO' (Read-Host 'E-mail que vai RECEBER os relatorios (Enter = o mesmo)').Trim()
  if (-not $SoGmail) {
   Write-Host ''
