@@ -199,6 +199,28 @@ def enviar_email(usuario, senha, para, assunto, texto):
         s.sendmail(usuario, [para], msg.as_string())
 
 
+def publicar_no_github(token, repo, dono, assunto, texto):
+    """Publica o relatorio como comentario numa issue fixa do repositorio.
+    O GitHub manda um e-mail ao dono a cada comentario novo (sem senha de Gmail)."""
+    api = f"https://api.github.com/repos/{repo}/issues"
+    cab = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+           "Content-Type": "application/json", "User-Agent": "monitor-de-views"}
+    abertas = http_json(api + "?state=open&labels=relatorio&per_page=1", headers=cab)
+    if abertas:
+        numero = abertas[0]["number"]
+    else:
+        nova = http_json(api, metodo="POST", headers=cab, data=json.dumps({
+            "title": "📊 Relatório de views",
+            "labels": ["relatorio"],
+            "body": f"@{dono} os relatórios do Monitor de Views chegam aqui, como comentários, toda hora.",
+        }).encode())
+        numero = nova["number"]
+    corpo = f"@{dono} **{assunto}**\n\n```\n{texto}\n```"
+    http_json(f"{api}/{numero}/comments", metodo="POST", headers=cab,
+              data=json.dumps({"body": corpo}).encode())
+    return numero
+
+
 def enviar_whatsapp(telefone, apikey, texto):
     url = "https://api.callmebot.com/whatsapp.php?" + urllib.parse.urlencode(
         {"phone": telefone, "text": texto, "apikey": apikey})
@@ -240,6 +262,14 @@ def main():
 
     falhou = not atuais and bool(erros)
     if env("MODO_RELATORIO", "sempre") == "sempre" or tem_alerta or erros:
+        if env("GITHUB_TOKEN") and env("GITHUB_REPOSITORY"):
+            try:
+                n = publicar_no_github(env("GITHUB_TOKEN"), env("GITHUB_REPOSITORY"),
+                                       env("GITHUB_REPOSITORY_OWNER", ""), assunto, texto)
+                print(f"Relatorio publicado na issue #{n} (o GitHub envia o e-mail).")
+            except Exception as e:  # noqa: BLE001
+                print(f"ERRO AO PUBLICAR NO GITHUB: {e}")
+                falhou = True
         if env("GMAIL_USER") and env("GMAIL_APP_PASSWORD"):
             try:
                 enviar_email(env("GMAIL_USER"), env("GMAIL_APP_PASSWORD"),
