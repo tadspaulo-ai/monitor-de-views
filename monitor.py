@@ -189,9 +189,15 @@ def montar_relatorio(atuais, anteriores, por_hora, total_viral, erros):
 def enviar_email(usuario, senha, para, assunto, texto):
     msg = MIMEText(texto, "plain", "utf-8")
     msg["Subject"], msg["From"], msg["To"] = assunto, usuario, para
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as s:
-        s.login(usuario, senha)
-        s.sendmail(usuario, [para], msg.as_string())
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=60) as s:
+            s.login(usuario, senha)
+            s.sendmail(usuario, [para], msg.as_string())
+    except smtplib.SMTPServerDisconnected:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=60) as s:
+            s.starttls(context=ssl.create_default_context())
+            s.login(usuario, senha)
+            s.sendmail(usuario, [para], msg.as_string())
 
 
 def enviar_whatsapp(telefone, apikey, texto):
@@ -225,23 +231,33 @@ def main():
         atuais, anteriores, int(env("VIRAL_POR_HORA", "1000")), int(env("VIRAL_TOTAL", "100000")), erros)
     print(texto)
 
-    if env("MODO_RELATORIO", "sempre") == "sempre" or tem_alerta or erros:
-        if env("GMAIL_USER") and env("GMAIL_APP_PASSWORD"):
-            enviar_email(env("GMAIL_USER"), env("GMAIL_APP_PASSWORD"),
-                         env("EMAIL_TO", env("GMAIL_USER")), assunto, texto)
-            print("E-mail enviado.")
-    if whats and env("CALLMEBOT_PHONE") and env("CALLMEBOT_APIKEY"):
-        enviar_whatsapp(env("CALLMEBOT_PHONE"), env("CALLMEBOT_APIKEY"), whats)
-        print("WhatsApp enviado.")
-
-    # guarda so os numeros necessarios para a proxima comparacao
+    # guarda so os numeros necessarios para a proxima comparacao (antes de enviar,
+    # para que uma falha no envio nao apague o historico)
     salvar = {k: {"views": v["views"]} for k, v in atuais.items()}
     for k, v in anteriores.items():  # nao perde o historico se uma plataforma falhar
         salvar.setdefault(k, v)
     with open(ESTADO, "w", encoding="utf-8") as f:
         json.dump({"atualizado": datetime.now(timezone.utc).isoformat(), "videos": salvar}, f, indent=1)
 
-    if not atuais and erros:
+    falhou = not atuais and bool(erros)
+    if env("MODO_RELATORIO", "sempre") == "sempre" or tem_alerta or erros:
+        if env("GMAIL_USER") and env("GMAIL_APP_PASSWORD"):
+            try:
+                enviar_email(env("GMAIL_USER"), env("GMAIL_APP_PASSWORD"),
+                             env("EMAIL_TO", env("GMAIL_USER")), assunto, texto)
+                print("E-mail enviado.")
+            except smtplib.SMTPException as e:
+                print(f"ERRO NO E-MAIL: o Gmail recusou o login ({type(e).__name__}: {e}). "
+                      "Confira se GMAIL_USER e o endereco completo e se GMAIL_APP_PASSWORD e uma senha de app.")
+                falhou = True
+    if whats and env("CALLMEBOT_PHONE") and env("CALLMEBOT_APIKEY"):
+        try:
+            enviar_whatsapp(env("CALLMEBOT_PHONE"), env("CALLMEBOT_APIKEY"), whats)
+            print("WhatsApp enviado.")
+        except Exception as e:  # noqa: BLE001
+            print(f"ERRO NO WHATSAPP: {e}")
+
+    if falhou:
         sys.exit(1)
 
 
