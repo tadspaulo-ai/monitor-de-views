@@ -1,7 +1,7 @@
 # Configurador do Monitor de Views
 # Guarda as chaves como segredos criptografados do GitHub e autoriza a conta do TikTok.
 # Nada do que voce digitar aqui aparece na tela nem fica salvo no PC.
-param([string]$Repo = 'tadspaulo-ai/monitor-de-views', [switch]$SoTikTok, [switch]$SoGmail)
+param([string]$Repo = 'tadspaulo-ai/monitor-de-views', [switch]$SoTikTok, [switch]$SoGmail, [switch]$SoWhatsApp)
 
 $ErrorActionPreference = 'Stop'
 $gh = 'C:\Program Files\GitHub CLI\gh.exe'
@@ -16,6 +16,35 @@ function Set-Segredo([string]$nome, [string]$valor) {
   if ([string]::IsNullOrWhiteSpace($valor)) { Write-Host "  (pulado: $nome)" -ForegroundColor DarkGray; return }
   & $gh secret set $nome --repo $Repo --body $valor | Out-Null
   Write-Host "  OK: $nome guardado no GitHub" -ForegroundColor Green
+}
+
+if ($SoWhatsApp) {
+  Write-Host ''
+  Write-Host '=== Monitor de Views - WhatsApp (CallMeBot) ===' -ForegroundColor Cyan
+  Write-Host '1) No celular, salve o contato +34 644 44 21 48 (nome: CallMeBot).'
+  Write-Host '2) Mande para ele no WhatsApp:  I allow callmebot to send me messages'
+  Write-Host '3) Ele responde com "Your APIKEY is ...". Copie so o numero da apikey.'
+  Write-Host ''
+  while ($true) {
+    $fone = ((Read-Host 'Seu WhatsApp com DDI e DDD, so numeros (ex.: 5511999998888)') -replace '[^\d]', '')
+    if (-not $fone) { break }
+    $key = Read-Segredo 'Cole a apikey que o CallMeBot respondeu'
+    $url = 'https://api.callmebot.com/whatsapp.php?phone=%2B' + $fone + '&apikey=' + [uri]::EscapeDataString($key) +
+           '&text=' + [uri]::EscapeDataString('Monitor de Views: WhatsApp configurado! Voce vai receber os alertas de videos viralizando aqui.')
+    try {
+      $resp = (Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 60).Content
+      if ($resp -match 'APIKey is invalid|not valid|Error') { $m = ($resp -replace '<[^>]+>', ' ' -replace '\s+', ' ').Trim(); throw $m.Substring(0, [Math]::Min(200, $m.Length)) }
+      Write-Host '  Mensagem de teste enviada. Confira o WhatsApp!' -ForegroundColor Green
+      Set-Segredo 'CALLMEBOT_PHONE' $fone
+      Set-Segredo 'CALLMEBOT_APIKEY' $key
+      break
+    } catch {
+      Write-Host "  O CallMeBot recusou: $_" -ForegroundColor Red
+      Write-Host '  Confira o numero e a apikey e tente de novo (ou Enter para sair).' -ForegroundColor Red
+    }
+  }
+  Read-Host 'Aperte Enter para fechar'
+  exit
 }
 
 Write-Host ''
@@ -56,7 +85,7 @@ if (-not $SoTikTok) {
  if (-not $SoGmail) {
   Write-Host ''
   Write-Host '--- WhatsApp (opcional, CallMeBot) ---' -ForegroundColor Yellow
-  Write-Host 'Para ativar: adicione +34 644 71 81 99 nos contatos e mande "I allow callmebot to send me messages".'
+  Write-Host 'Para ativar: adicione +34 644 44 21 48 nos contatos e mande "I allow callmebot to send me messages".'
   Set-Segredo 'CALLMEBOT_PHONE' (Read-Host 'Seu WhatsApp com DDI (ex.: 5511999998888) ou Enter para pular').Trim()
   Set-Segredo 'CALLMEBOT_APIKEY' (Read-Segredo 'apikey que o CallMeBot te respondeu (ou Enter)')
  }
