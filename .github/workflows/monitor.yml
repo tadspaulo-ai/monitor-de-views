@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: monitor
@@ -23,6 +24,7 @@ jobs:
           python-version: "3.12"
       - name: Coletar views e enviar relatorio
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
           YT_CHANNEL: ${{ secrets.YT_CHANNEL }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
