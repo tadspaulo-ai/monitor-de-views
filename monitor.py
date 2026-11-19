@@ -222,6 +222,7 @@ def publicar_no_github(token, repo, dono, assunto, texto):
 
 
 def enviar_whatsapp(telefone, apikey, texto):
+    telefone = "+" + "".join(c for c in telefone if c.isdigit())
     url = "https://api.callmebot.com/whatsapp.php?" + urllib.parse.urlencode(
         {"phone": telefone, "text": texto, "apikey": apikey})
     urllib.request.urlopen(url, timeout=60).read()
