@@ -65,7 +65,7 @@ if (-not $SoTikTok) {
 Write-Host ''
 Write-Host '--- TikTok ---' -ForegroundColor Yellow
 Write-Host 'Client key e Client secret: developers.tiktok.com > Monitor de Views > Sandbox > Credentials.'
-$ck = Read-Segredo 'Cole o Client key do TikTok'
+$ck = if ($SoGmail) { '' } else { Read-Segredo 'Cole o Client key do TikTok' }
 if ($ck) {
   $cs = Read-Segredo 'Cole o Client secret do TikTok'
   Set-Segredo 'TIKTOK_CLIENT_KEY' $ck
