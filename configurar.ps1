@@ -1,7 +1,7 @@
 # Configurador do Monitor de Views
 # Guarda as chaves como segredos criptografados do GitHub e autoriza a conta do TikTok.
 # Nada do que voce digitar aqui aparece na tela nem fica salvo no PC.
-param([string]$Repo = 'tadspaulo-ai/monitor-de-views', [switch]$SoTikTok)
+param([string]$Repo = 'tadspaulo-ai/monitor-de-views', [switch]$SoTikTok, [switch]$SoGmail)
 
 $ErrorActionPreference = 'Stop'
 $gh = 'C:\Program Files\GitHub CLI\gh.exe'
@@ -24,22 +24,25 @@ Write-Host 'Deixe em branco e aperte Enter para pular qualquer item.'
 Write-Host ''
 
 if (-not $SoTikTok) {
+ if (-not $SoGmail) {
   Write-Host '--- YouTube ---' -ForegroundColor Yellow
   Set-Segredo 'YT_API_KEY' (Read-Segredo 'Cole a chave da API do YouTube (Google Cloud > Credenciais)')
   Set-Segredo 'YT_CHANNEL' (Read-Host 'Seu canal do YouTube (ex.: @seucanal)').Trim()
-
+ }
   Write-Host ''
   Write-Host '--- E-mail (Gmail) ---' -ForegroundColor Yellow
+  Write-Host 'Use o endereco COMPLETO (ex.: nome@gmail.com) e a senha de app, NAO a senha normal do Gmail.'
   Write-Host 'Senha de app: myaccount.google.com/apppasswords (precisa da verificacao em 2 etapas ligada).'
   Set-Segredo 'GMAIL_USER' (Read-Host 'Seu endereco do Gmail que vai ENVIAR os relatorios').Trim()
   Set-Segredo 'GMAIL_APP_PASSWORD' ((Read-Segredo 'Cole a senha de app do Gmail (16 letras)') -replace '\s', '')
   Set-Segredo 'EMAIL_TO' (Read-Host 'E-mail que vai RECEBER os relatorios (Enter = o mesmo)').Trim()
-
+ if (-not $SoGmail) {
   Write-Host ''
   Write-Host '--- WhatsApp (opcional, CallMeBot) ---' -ForegroundColor Yellow
   Write-Host 'Para ativar: adicione +34 644 71 81 99 nos contatos e mande "I allow callmebot to send me messages".'
   Set-Segredo 'CALLMEBOT_PHONE' (Read-Host 'Seu WhatsApp com DDI (ex.: 5511999998888) ou Enter para pular').Trim()
   Set-Segredo 'CALLMEBOT_APIKEY' (Read-Segredo 'apikey que o CallMeBot te respondeu (ou Enter)')
+ }
 }
 
 Write-Host ''
