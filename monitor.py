@@ -141,7 +141,7 @@ def montar_relatorio(atuais, anteriores, por_hora, total_viral, erros):
                      key=lambda v: v["ganho"], reverse=True)
     virais = sorted([v for v in atuais.values() if v["views"] >= total_viral],
                     key=lambda v: v["views"], reverse=True)
-    top_hora = sorted([v for v in atuais.values() if v["ganho"]],
+    top_hora = sorted([v for v in atuais.values() if v["ganho"] and v["ganho"] > 0],
                       key=lambda v: v["ganho"], reverse=True)[:5]
 
     linhas = [f"Monitor de Views - {agora} (horario de Brasilia)", ""]
@@ -149,8 +149,9 @@ def montar_relatorio(atuais, anteriores, por_hora, total_viral, erros):
         vs = [v for v in atuais.values() if v["plataforma"] == plat]
         if vs:
             ganho = sum(v["ganho"] or 0 for v in vs)
+            sinal = "+" if ganho >= 0 else "-"
             linhas.append(f"{plat}: {len(vs)} videos, {fmt(sum(v['views'] for v in vs))} views no total"
-                          f" (+{fmt(ganho)} na ultima hora)")
+                          f" ({sinal}{fmt(abs(ganho))} na ultima hora)")
     linhas.append("")
 
     if subindo:
